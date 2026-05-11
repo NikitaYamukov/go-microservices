@@ -1,0 +1,20 @@
+basePath: /
+host: localhost:9000
+info:
+  contact: {}
+  description: Account Service
+  title: Account Service
+  version: "1.0"
+paths:
+  /ping:
+    get:
+      description: Возвращает pong
+      responses:
+        "200":
+          description: pong
+          schema:
+            type: string
+      summary: Проверка доступности сервиса
+      tags:
+      - health
+swagger: "2.0"

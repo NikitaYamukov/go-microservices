@@ -1,0 +1,36 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Coverage
+*.out
+coverage.*
+
+# Vendor
+vendor/
+
+# Go workspace
+go.work
+
+# Environment
+.env
+
+# OS files
+.DS_Store
+
+# Logs
+*.log
+
+# Build
+bin/
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
