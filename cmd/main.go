@@ -1,17 +1,18 @@
 package main
 
 import (
+	"fmt"
 	"log"
+	"net"
 
-	_ "github.com/NikitaYamukov/go-microservices/docs"
 	"github.com/NikitaYamukov/go-microservices/internal/config"
 	"github.com/NikitaYamukov/go-microservices/internal/logger"
 	"github.com/NikitaYamukov/go-microservices/internal/repository"
 
-	"github.com/gin-gonic/gin"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
-
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	grpc_health_v1 "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -19,7 +20,7 @@ import (
 // @title Account Service
 // @version 1.0
 // @description Account Service
-// @host localhost:9000
+// @host localhost:8080
 // @BasePath /
 func main() {
 	// Загружаем конфигурацию
@@ -28,46 +29,41 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Инициализируем логгер
-	logg := logger.New(cfg)
+	// Инициализируем общий логгер с названием сервиса
+	appLogger := logger.New(cfg)
 
 	// Подключаемся к базе данных
 	db, err := gorm.Open(postgres.Open(cfg.DbDsn), &gorm.Config{})
 	if err != nil {
-		logg.Error().Msgf("Failed to connect to database: %v", err)
+		appLogger.Error().Msgf("Failed to connect to database: %v", err)
 		return
 	}
 
-	logg.Info().Msg("database connected")
+	appLogger.Info().Msg("database connected")
 
 	// Инициализируем репозиторий
-	repo := repository.NewRepository(db, logg)
+	repo := repository.NewRepository(db, appLogger)
 	_ = repo
 
-	// Gin router
-	router := gin.Default()
-
-	err = router.SetTrustedProxies([]string{"127.0.0.1"})
+	// Запускаем gRPC-сервер согласно контрактам
+	listenAddr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	lis, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		logg.Error().Msgf("Failed to set trusted proxies: %v", err)
+		appLogger.Error().Msgf("Failed to listen on %s: %v", listenAddr, err)
 		return
 	}
 
-	// Swagger
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	grpcServer := grpc.NewServer()
 
-	// Test endpoint
-	router.GET("/ping", PingExample)
+	// Регистрация health-сервиса и reflection для дебага
+	healthSrv := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthSrv)
+	reflection.Register(grpcServer)
 
-	router.Run(":9000")
-}
-
-// PingExample godoc
-// @Summary Проверка доступности сервиса
-// @Description Возвращает pong
-// @Tags health
-// @Success 200 {string} string "pong"
-// @Router /ping [get]
-func PingExample(c *gin.Context) {
-	c.String(200, "pong")
+	appLogger.Info().Msg("service starting up")
+	appLogger.Info().Msgf("gRPC server listening on %s", listenAddr)
+	if err := grpcServer.Serve(lis); err != nil {
+		appLogger.Error().Msgf("Failed to serve gRPC: %v", err)
+		return
+	}
 }
