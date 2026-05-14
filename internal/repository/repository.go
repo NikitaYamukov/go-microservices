@@ -25,8 +25,8 @@ func NewRepository(db *gorm.DB, logger zerolog.Logger) *Repository {
 	}
 }
 
-func (r *Repository) CreateUser(ctx context.Context, user model.CreateUser) error {
-	userRepo := mapper.CreateUserToRepoUser(user)
+func (r *Repository) CreateUser(ctx context.Context, user model.User) error {
+	userRepo := mapper.UserToRepoUser(user)
 	res := r.db.WithContext(ctx).
 		Clauses(clause.OnConflict{UpdateAll: true}).
 		Create(&userRepo)
