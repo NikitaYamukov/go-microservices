@@ -3,10 +3,10 @@ package main
 import (
 	"log"
 
-	_ "account/docs"
-	"account/internal/config"
-	"account/internal/logger"
-	"account/internal/repository"
+	_ "github.com/NikitaYamukov/go-microservices/docs"
+	"github.com/NikitaYamukov/go-microservices/internal/config"
+	"github.com/NikitaYamukov/go-microservices/internal/logger"
+	"github.com/NikitaYamukov/go-microservices/internal/repository"
 
 	"github.com/gin-gonic/gin"
 	swaggerFiles "github.com/swaggo/files"
