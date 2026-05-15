@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/NikitaYamukov/go-microservices/internal/config"
+	"github.com/NikitaYamukov/go-microservices/account/internal/config"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/fatih/color"

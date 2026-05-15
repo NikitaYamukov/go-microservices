@@ -4,9 +4,9 @@ import (
 	"context"
 	"log"
 
-	"github.com/NikitaYamukov/go-microservices/internal/app"
-	"github.com/NikitaYamukov/go-microservices/internal/config"
-	"github.com/NikitaYamukov/go-microservices/internal/logger"
+	"github.com/NikitaYamukov/go-microservices/account/internal/app"
+	"github.com/NikitaYamukov/go-microservices/account/internal/config"
+	"github.com/NikitaYamukov/go-microservices/account/internal/logger"
 )
 
 // @title Account Service

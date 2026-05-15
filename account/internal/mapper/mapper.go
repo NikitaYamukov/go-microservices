@@ -2,7 +2,7 @@ package mapper
 
 import (
 	accountpb "github.com/NikitaYamukov/contracts/account/go"
-	"github.com/NikitaYamukov/go-microservices/internal/model"
+	"github.com/NikitaYamukov/go-microservices/account/internal/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

@@ -1,8 +1,8 @@
 package mapper
 
 import (
-	"github.com/NikitaYamukov/go-microservices/internal/model"
-	repomodel "github.com/NikitaYamukov/go-microservices/internal/repository/model"
+	"github.com/NikitaYamukov/go-microservices/account/internal/model"
+	repomodel "github.com/NikitaYamukov/go-microservices/account/internal/repository/model"
 )
 
 func UserToRepoUser(user model.User) repomodel.User {

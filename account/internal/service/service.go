@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/NikitaYamukov/go-microservices/internal/model"
+	"github.com/NikitaYamukov/go-microservices/account/internal/model"
 	"github.com/rs/zerolog"
 )
 

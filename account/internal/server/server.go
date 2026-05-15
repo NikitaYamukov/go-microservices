@@ -4,8 +4,8 @@ import (
 	"context"
 
 	accountpb "github.com/NikitaYamukov/contracts/account/go"
-	"github.com/NikitaYamukov/go-microservices/internal/mapper"
-	"github.com/NikitaYamukov/go-microservices/internal/model"
+	"github.com/NikitaYamukov/go-microservices/account/internal/mapper"
+	"github.com/NikitaYamukov/go-microservices/account/internal/model"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/emptypb"
 )

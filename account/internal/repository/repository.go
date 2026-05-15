@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NikitaYamukov/go-microservices/internal/model"
-	"github.com/NikitaYamukov/go-microservices/internal/repository/mapper"
-	repomodel "github.com/NikitaYamukov/go-microservices/internal/repository/model"
+	"github.com/NikitaYamukov/go-microservices/account/internal/model"
+	"github.com/NikitaYamukov/go-microservices/account/internal/repository/mapper"
+	repomodel "github.com/NikitaYamukov/go-microservices/account/internal/repository/model"
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"

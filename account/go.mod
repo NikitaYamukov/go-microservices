@@ -1,4 +1,4 @@
-module github.com/NikitaYamukov/go-microservices
+module github.com/NikitaYamukov/go-microservices/account
 
 go 1.25.7
 
