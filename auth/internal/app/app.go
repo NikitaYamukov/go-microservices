@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"net"
 
-	accountpb "github.com/NikitaYamukov/contracts/account/go"
-	"github.com/NikitaYamukov/go-microservices/account/internal/config"
-	_ "github.com/NikitaYamukov/go-microservices/account/internal/migrations"
-	"github.com/NikitaYamukov/go-microservices/account/internal/repository"
-	"github.com/NikitaYamukov/go-microservices/account/internal/server"
-	"github.com/NikitaYamukov/go-microservices/account/internal/service"
+	authpb "github.com/NikitaYamukov/contracts/auth/go"
+	"github.com/NikitaYamukov/go-microservices/auth/internal/config"
+	_ "github.com/NikitaYamukov/go-microservices/auth/internal/migrations"
+	"github.com/NikitaYamukov/go-microservices/auth/internal/repository"
+	"github.com/NikitaYamukov/go-microservices/auth/internal/server"
+	"github.com/NikitaYamukov/go-microservices/auth/internal/service"
 	"github.com/pressly/goose/v3"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
@@ -26,10 +26,10 @@ type App struct {
 	cfg    *config.Config
 	logger zerolog.Logger
 
-	accountRepository *repository.Repository
-	accountService    *service.AccountService
-	accountServer     *server.Server
-	grpcServer        *grpc.Server
+	authRepository *repository.Repository
+	authService    *service.AuthService
+	authServer     *server.Server
+	grpcServer     *grpc.Server
 }
 
 func New(logger zerolog.Logger, cfg *config.Config) *App {
@@ -40,12 +40,12 @@ func New(logger zerolog.Logger, cfg *config.Config) *App {
 }
 
 func (a *App) Run(ctx context.Context) error {
-	accountServer, err := a.getAccountServer(ctx)
+	authServer, err := a.getAuthServer(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get account server: %w", err)
+		return fmt.Errorf("failed to get auth server: %w", err)
 	}
 
-	a.grpcServer = getGRPCServer(accountServer)
+	a.grpcServer = getGRPCServer(authServer)
 
 	listenAddr := fmt.Sprintf("%s:%d", a.cfg.Host, a.cfg.Port)
 	lis, err := net.Listen("tcp", listenAddr)
@@ -74,7 +74,7 @@ func (a *App) Run(ctx context.Context) error {
 }
 
 func (a *App) getRepository(ctx context.Context) (*repository.Repository, error) {
-	if a.accountRepository == nil {
+	if a.authRepository == nil {
 		if err := a.runMigrations(ctx); err != nil {
 			return nil, fmt.Errorf("failed to get repository: %w", err)
 		}
@@ -84,10 +84,10 @@ func (a *App) getRepository(ctx context.Context) (*repository.Repository, error)
 			return nil, fmt.Errorf("gorm init failed: %w", err)
 		}
 
-		a.accountRepository = repository.NewRepository(db, a.logger)
+		a.authRepository = repository.NewRepository(db, &a.logger)
 	}
 
-	return a.accountRepository, nil
+	return a.authRepository, nil
 }
 
 func (a *App) runMigrations(ctx context.Context) error {
@@ -108,35 +108,35 @@ func (a *App) runMigrations(ctx context.Context) error {
 	return nil
 }
 
-func (a *App) getAccountService(ctx context.Context) (*service.AccountService, error) {
-	if a.accountService == nil {
+func (a *App) getAuthService(ctx context.Context) (*service.AuthService, error) {
+	if a.authService == nil {
 		repo, err := a.getRepository(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get repository: %w", err)
 		}
 
-		a.accountService = service.New(repo, a.logger)
+		a.authService = service.New(repo, a.cfg, &a.logger)
 	}
 
-	return a.accountService, nil
+	return a.authService, nil
 }
 
-func (a *App) getAccountServer(ctx context.Context) (*server.Server, error) {
-	if a.accountServer == nil {
-		service, err := a.getAccountService(ctx)
+func (a *App) getAuthServer(ctx context.Context) (*server.Server, error) {
+	if a.authServer == nil {
+		authService, err := a.getAuthService(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get service: %w", err)
 		}
 
-		a.accountServer = server.New(service, a.logger)
+		a.authServer = server.New(authService, &a.logger)
 	}
 
-	return a.accountServer, nil
+	return a.authServer, nil
 }
 
 func getGRPCServer(srv *server.Server) *grpc.Server {
 	grpcSrv := grpc.NewServer()
-	accountpb.RegisterAccountServer(grpcSrv, srv)
+	authpb.RegisterAuthServer(grpcSrv, srv)
 	reflection.Register(grpcSrv)
 	return grpcSrv
 }
