@@ -12,7 +12,7 @@ type Config struct {
 	ServiceName string `env:"SERVICE_NAME" required:"true" default:"account-service"`
 	AppEnv      string `env:"APP_ENV" required:"true" default:"development"`
 	Host        string `env:"HTTP_HOST" required:"true" default:"localhost"`
-	Port        int    `env:"HTTP_PORT" required:"true" default:"9000"`
+	Port        int    `env:"HTTP_PORT" required:"true" default:"50051"`
 	LogLevel    string `env:"LOG_LEVEL" required:"true" default:"info"`
 
 	DbDsn string `env:"DB_DSN" required:"true"`

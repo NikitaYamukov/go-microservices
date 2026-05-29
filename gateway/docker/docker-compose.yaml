@@ -1,0 +1,20 @@
+name: gateway
+
+services:
+  gateway:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      SERVICE_NAME: gateway
+      APP_ENV: dev
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 50053
+      LOG_LEVEL: debug
+      ACCOUNT_GRPC_HOST: host.docker.internal:50051
+      AUTH_GRPC_HOST: host.docker.internal:50052
+      JWT_SECRET: dev-secret
+    ports:
+      - "50053:50053"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
