@@ -3,7 +3,7 @@ module github.com/NikitaYamukov/go-microservices/account
 go 1.25.7
 
 require (
-	github.com/NikitaYamukov/contracts v1.0.1
+	github.com/NikitaYamukov/contracts v1.3.0
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fatih/color v1.19.0

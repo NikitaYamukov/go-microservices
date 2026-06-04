@@ -11,6 +11,8 @@ func init() {
 	goose.AddNamedMigrationContext("20260514214231_initdb.go", upCreateUsersTable, downCreateUsersTable)
 	goose.AddNamedMigrationContext("20260601171229_add_account_index.go", upAddAccountIndex,
 		downAddAccountIndex)
+	goose.AddNamedMigrationContext("20260604033456_add_balance_to_users.go", upAddBalanceToUsers,
+		downAddBalanceToUsers)
 }
 
 func upCreateUsersTable(ctx context.Context, tx *sql.Tx) error {

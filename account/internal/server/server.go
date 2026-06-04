@@ -22,20 +22,26 @@ func New(accountService AccountService, logger zerolog.Logger) *Server {
 }
 
 type AccountService interface {
-	CreateUser(ctx context.Context, user model.CreateUser) error
+	CreateUser(ctx context.Context, user model.CreateUser) (model.User, error)
 	GetUser(ctx context.Context, userID uint64) (model.User, error)
 	GetUsers(ctx context.Context, limit int, offset int) ([]model.User, error)
 	DeleteUser(ctx context.Context, userID uint64) error
 	UpdateUser(ctx context.Context, userID uint64, user model.UpdateUser) error
+	GetBalance(ctx context.Context, userID uint64) (model.GetBalanceResponse, error)
+	Deposit(ctx context.Context, userID uint64, amount int64) (model.UpdateBalanceResponse, error)
+	Withdraw(ctx context.Context, userID uint64, amount int64) (model.UpdateBalanceResponse, error)
+	Transfer(ctx context.Context, fromUserID, toUserID uint64, amount int64) (model.GetBalanceResponse,
+		model.GetBalanceResponse, error)
 }
 
-func (s *Server) CreateUser(ctx context.Context, req *accountpb.CreateUserRequest) (*emptypb.Empty, error) {
+func (s *Server) CreateUser(ctx context.Context, req *accountpb.CreateUserRequest) (*accountpb.CreateUserResponse, error) {
 	user := mapper.PbToUserCreate(req.GetUser())
-	if err := s.accountService.CreateUser(ctx, user); err != nil {
+	res, err := s.accountService.CreateUser(ctx, user)
+	if err != nil {
 		return nil, err
 	}
 
-	return &emptypb.Empty{}, nil
+	return &accountpb.CreateUserResponse{User: mapper.UserToPb(res)}, nil
 }
 
 func (s *Server) GetUser(ctx context.Context, req *accountpb.GetUserRequest) (*accountpb.GetUserResponse, error) {
@@ -75,4 +81,69 @@ func (s *Server) DeleteUser(ctx context.Context, req *accountpb.DeleteUserReques
 	}
 
 	return &emptypb.Empty{}, nil
+}
+
+// Deposit пополняет баланс пользователя
+func (s *Server) Deposit(ctx context.Context, req *accountpb.DepositRequest) (*accountpb.DepositResponse, error) {
+	response, err := s.accountService.Deposit(ctx, req.GetUserId(), req.GetAmount())
+	if err != nil {
+		return &accountpb.DepositResponse{
+			Status:  "failed",
+			Balance: 0,
+		}, err
+	}
+
+	return &accountpb.DepositResponse{
+		Status:  "completed",
+		Balance: int64(response.NewBalance),
+	}, nil
+}
+
+// Withdraw списывает средства с баланса пользователя
+func (s *Server) Withdraw(ctx context.Context, req *accountpb.WithdrawRequest) (*accountpb.WithdrawResponse, error) {
+	response, err := s.accountService.Withdraw(ctx, req.GetUserId(), req.GetAmount())
+	if err != nil {
+		return &accountpb.WithdrawResponse{
+			Status:  "failed",
+			Balance: 0,
+		}, err
+	}
+
+	return &accountpb.WithdrawResponse{
+		Status:  "completed",
+		Balance: int64(response.NewBalance),
+	}, nil
+}
+
+// Transfer переводит средства между пользователями
+func (s *Server) Transfer(ctx context.Context, req *accountpb.TransferRequest) (*accountpb.TransferResponse, error) {
+	fromUserBalance, toUserBalance, err := s.accountService.Transfer(ctx, req.GetUserId(),
+		req.GetRecipientId(), req.GetAmount())
+	if err != nil {
+		return &accountpb.TransferResponse{
+			Status:           "failed",
+			UserBalance:      0,
+			RecipientBalance: 0,
+		}, err
+	}
+
+	return &accountpb.TransferResponse{
+		Status:           "completed",
+		UserBalance:      int64(fromUserBalance.Balance),
+		RecipientBalance: int64(toUserBalance.Balance),
+	}, nil
+}
+
+// GetBalance получает баланс пользователя
+func (s *Server) GetBalance(ctx context.Context, req *accountpb.GetBalanceRequest) (*accountpb.GetBalanceResponse, error) {
+	response, err := s.accountService.GetBalance(ctx, req.GetUserId())
+	if err != nil {
+		return &accountpb.GetBalanceResponse{
+			Balance: 0,
+		}, err
+	}
+
+	return &accountpb.GetBalanceResponse{
+		Balance: int64(response.Balance),
+	}, nil
 }

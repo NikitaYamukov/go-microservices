@@ -1,7 +1,7 @@
 github.com/KyleBanks/depth v1.2.1 h1:5h8fQADFrWtarTdtDudMmGsC7GPbOAu6RVB3ffsVFHc=
 github.com/KyleBanks/depth v1.2.1/go.mod h1:jzSb9d0L43HxTQfT+oSA1EEp2q+ne2uh6XgeJcm8brE=
-github.com/NikitaYamukov/contracts v1.0.1 h1:0kkGtwmcksCb1VnUFFbq2dOsVMJOnt3moNFDkGIDVVk=
-github.com/NikitaYamukov/contracts v1.0.1/go.mod h1:DRVBf6Zf019nXu7VCFeB49a2bw9sAGbXoZRU5RUQApk=
+github.com/NikitaYamukov/contracts v1.3.0 h1:HqZcgEB+MXNkUQ3U+7/bufOH/+mDDvBt5zetgybgy2Q=
+github.com/NikitaYamukov/contracts v1.3.0/go.mod h1:DRVBf6Zf019nXu7VCFeB49a2bw9sAGbXoZRU5RUQApk=
 github.com/PuerkitoBio/purell v1.1.1 h1:WEQqlqaGbrPkxLJWfBwQmfEAE1Z7ONdDLqrN38tNFfI=
 github.com/PuerkitoBio/purell v1.1.1/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 h1:d+Bc7a5rLufV/sSk/8dngufqelfh6jnri85riMAaF/M=

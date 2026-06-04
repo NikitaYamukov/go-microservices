@@ -11,6 +11,8 @@ type User struct {
 	LastName   string    `gorm:"column:last_name"`
 	MiddleName string    `gorm:"column:middle_name"`
 	Age        uint32    `gorm:"column:age"`
+	Balance    float32   `gorm:"column:balance"`
+	IsDeleted  bool      `gorm:"column:is_deleted"`
 	CreatedAt  time.Time `gorm:"column:created_at"`
 	UpdatedAt  time.Time `gorm:"column:updated_at"`
 }
