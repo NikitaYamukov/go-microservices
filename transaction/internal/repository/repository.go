@@ -131,19 +131,8 @@ func (r *Repository) Deposit(ctx context.Context, params model.DepositParams) (m
 			return fmt.Errorf("failed to create transaction entry: %w", res.Error)
 		}
 
-		// Обновляем статус транзакции на completed
-		updateData := mapper.UpdateTransactionToRepoTransaction(model.UpdateTransaction{
-			Status: model.TransactionStatusCompleted,
-		})
-
-		res = tx.Where("id = ?", transactionRepo.ID).Updates(&updateData)
-		if res.Error != nil {
-			r.logger.Err(res.Error).Msg("failed to update transaction status in deposit")
-			return fmt.Errorf("failed to update transaction status: %w", res.Error)
-		}
-
-		// Получаем детали созданной транзакции
-		transactionRepo.Status = string(model.TransactionStatusCompleted)
+		// Получаем детали созданной транзакции (оставляем в статусе pending)
+		transactionRepo.Status = string(model.TransactionStatusPending)
 		result = model.TransactionDetails{
 			Transaction: mapper.RepoTransactionToTransaction(transactionRepo),
 			Entries: []model.TransactionEntry{
@@ -196,19 +185,8 @@ func (r *Repository) Withdraw(ctx context.Context, params model.WithdrawParams) 
 			return fmt.Errorf("failed to create transaction entry: %w", res.Error)
 		}
 
-		// Обновляем статус транзакции на completed
-		updateData := mapper.UpdateTransactionToRepoTransaction(model.UpdateTransaction{
-			Status: model.TransactionStatusCompleted,
-		})
-
-		res = tx.Where("id = ?", transactionRepo.ID).Updates(&updateData)
-		if res.Error != nil {
-			r.logger.Err(res.Error).Msg("failed to update transaction status in withdraw")
-			return fmt.Errorf("failed to update transaction status: %w", res.Error)
-		}
-
-		// Получаем детали созданной транзакции
-		transactionRepo.Status = string(model.TransactionStatusCompleted)
+		// Получаем детали созданной транзакции (оставляем в статусе pending)
+		transactionRepo.Status = string(model.TransactionStatusPending)
 		result = model.TransactionDetails{
 			Transaction: mapper.RepoTransactionToTransaction(transactionRepo),
 			Entries: []model.TransactionEntry{
@@ -276,19 +254,8 @@ func (r *Repository) Transfer(ctx context.Context, params model.TransferParams) 
 			return fmt.Errorf("failed to create debit transaction entry: %w", res.Error)
 		}
 
-		// Обновляем статус транзакции на completed
-		updateData := mapper.UpdateTransactionToRepoTransaction(model.UpdateTransaction{
-			Status: model.TransactionStatusCompleted,
-		})
-
-		res = tx.Where("id = ?", transactionRepo.ID).Updates(&updateData)
-		if res.Error != nil {
-			r.logger.Err(res.Error).Msg("failed to update transaction status in transfer")
-			return fmt.Errorf("failed to update transaction status: %w", res.Error)
-		}
-
-		// Получаем детали созданной транзакции
-		transactionRepo.Status = string(model.TransactionStatusCompleted)
+		// Получаем детали созданной транзакции (оставляем в статусе pending)
+		transactionRepo.Status = string(model.TransactionStatusPending)
 		result = model.TransactionDetails{
 			Transaction: mapper.RepoTransactionToTransaction(transactionRepo),
 			Entries: []model.TransactionEntry{
@@ -305,4 +272,29 @@ func (r *Repository) Transfer(ctx context.Context, params model.TransferParams) 
 	}
 
 	return result, nil
+}
+
+// UpdateTransactionStatus обновляет статус транзакции
+func (r *Repository) UpdateTransactionStatus(ctx context.Context, transactionID uint64,
+	status model.TransactionStatus) error {
+	updateData := mapper.UpdateTransactionToRepoTransaction(model.UpdateTransaction{
+		Status: status,
+	})
+
+	res := r.db.WithContext(ctx).
+		Model(&repomodel.Transaction{}).
+		Where("id = ?", transactionID).
+		Updates(&updateData)
+
+	if res.Error != nil {
+		r.logger.Err(res.Error).Uint64("transaction_id", transactionID).Str("status",
+			string(status)).Msg("failed to update transaction status")
+		return fmt.Errorf("failed to update transaction status: %w", res.Error)
+	}
+
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("transaction with id %d not found", transactionID)
+	}
+
+	return nil
 }
