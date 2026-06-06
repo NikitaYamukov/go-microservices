@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/model"
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/repository/mapper"
-	repomodel "github.com/NikitaYamukov/go-microservices/transaction/internal/repository/model"
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"transaction/internal/model"
+	"transaction/internal/repository/mapper"
+	repomodel "transaction/internal/repository/model"
 )
 
 type Repository struct {

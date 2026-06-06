@@ -8,17 +8,18 @@ import (
 
 	accountpb "github.com/NikitaYamukov/contracts/account/go"
 	transactionpb "github.com/NikitaYamukov/contracts/transaction/go"
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/account"
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/config"
-	_ "github.com/NikitaYamukov/go-microservices/transaction/internal/migrations"
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/repository"
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/server"
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/service"
 	"github.com/pressly/goose/v3"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"transaction/internal/account"
+	"transaction/internal/config"
+	"transaction/internal/kafka"
+	_ "transaction/internal/migrations"
+	"transaction/internal/repository"
+	"transaction/internal/server"
+	"transaction/internal/service"
 
 	_ "github.com/lib/pq"
 )
@@ -33,6 +34,7 @@ type App struct {
 	grpcServer            *grpc.Server
 
 	accountService *account.Service
+	kafkaClient    *kafka.Kafka
 }
 
 func New(logger zerolog.Logger, cfg *config.Config) *App {
@@ -124,15 +126,43 @@ func (a *App) getTransactionService(ctx context.Context) (*service.TransactionSe
 			return nil, fmt.Errorf("failed to get repository: %w", err)
 		}
 
-		accountSvc, err := a.getAccountService(ctx)
+		// Получаем gRPC-сервис
+		grpcSvc, err := a.getAccountService(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get account service: %w", err)
 		}
 
-		a.transactionService = service.New(repo, accountSvc, &a.logger)
+		// Теперь получаем Kafka-клиент и подписываемся
+		kafkaClient, err := a.getKafkaClient(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get kafka client: %w", err)
+		}
+
+		// Обновляем сервис с Kafka-клиентом
+		a.transactionService = service.New(repo, grpcSvc, kafkaClient, &a.logger)
+
+		a.kafkaClient.Subscribe(ctx, "transaction_response",
+			a.transactionService.HandleAccountResponse)
 	}
 
 	return a.transactionService, nil
+}
+
+func (a *App) getKafkaClient(ctx context.Context) (*kafka.Kafka, error) {
+	if a.kafkaClient == nil {
+		// Создаем producer
+		producerCfg := kafka.DefaultProducerConfig(a.cfg.KafkaBrokers)
+		producer := kafka.NewProducer(producerCfg, &a.logger)
+
+		// Создаем Kafka-клиент
+		kafkaClient := kafka.New(producer, a.cfg.KafkaBrokers, a.cfg.KafkaGroupID, &a.logger)
+
+		a.kafkaClient = kafkaClient
+
+		a.logger.Info().Msg("kafka client created")
+	}
+
+	return a.kafkaClient, nil
 }
 
 func (a *App) getTransactionServer(ctx context.Context) (*server.Server, error) {
@@ -171,8 +201,20 @@ func getGRPCServer(srv *server.Server) *grpc.Server {
 
 // Close корректно завершает работу приложения
 func (a *App) Close() error {
+	var errs []error
+
 	if a.grpcServer != nil {
 		a.grpcServer.GracefulStop()
+	}
+
+	if a.kafkaClient != nil {
+		if err := a.kafkaClient.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("failed to close kafka client: %w", err))
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("errors closing app: %v", errs)
 	}
 
 	return nil

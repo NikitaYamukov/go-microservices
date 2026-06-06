@@ -6,10 +6,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/config"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/fatih/color"
 	"github.com/rs/zerolog"
+	"transaction/internal/config"
 )
 
 func New(cfg *config.Config) zerolog.Logger {

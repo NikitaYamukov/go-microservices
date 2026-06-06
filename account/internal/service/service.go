@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/NikitaYamukov/go-microservices/account/internal/model"
@@ -12,11 +14,32 @@ import (
 
 type AccountService struct {
 	repo   Repository
-	logger zerolog.Logger
+	logger *zerolog.Logger
+
+	kafkaPublisher KafkaPublisher
 }
 
-func New(repo Repository, logger zerolog.Logger) *AccountService {
-	return &AccountService{repo: repo, logger: logger}
+func New(repo Repository, kafkaPublisher KafkaPublisher, logger *zerolog.Logger) *AccountService {
+	return &AccountService{
+		repo:           repo,
+		kafkaPublisher: kafkaPublisher,
+		logger:         logger,
+	}
+}
+
+type TransactionRequest struct {
+	RequestType string `json:"request_type"`
+	UserID      uint64 `json:"user_id"`
+	Amount      int64  `json:"amount"`
+	OperationID uint64 `json:"operation_id"`
+	RecipientID uint64 `json:"recipient_id"`
+}
+
+type TransactionResponse struct {
+	RequestType string                 `json:"request_type"`
+	UserID      uint64                 `json:"user_id"`
+	OperationID uint64                 `json:"operation_id"`
+	Result      map[string]interface{} `json:"result"`
 }
 
 type Repository interface {
@@ -28,6 +51,11 @@ type Repository interface {
 	GetBalance(context.Context, uint64) (float32, error)
 	UpdateBalance(context.Context, uint64, float32, model.BalanceOperationType) (float32, float32, error)
 	TransferBalance(context.Context, uint64, uint64, float32) error
+}
+
+// KafkaPublisher интерфейс для публикации сообщений в Kafka
+type KafkaPublisher interface {
+	Publish(ctx context.Context, topic string, key string, data interface{}) error
 }
 
 func (s *AccountService) CreateUser(ctx context.Context, newUser model.CreateUser) (model.User, error) {
@@ -224,4 +252,47 @@ func (s *AccountService) Transfer(ctx context.Context, fromUserID, toUserID uint
 		Msg("transfer successful")
 
 	return fromUserBalance, toUserBalance, nil
+}
+
+// HandleTransaction обрабатывает сообщения из Kafka от transaction service
+func (s *AccountService) HandleTransaction(ctx context.Context, topic string, key string,
+	data []byte) error {
+	s.logger.Info().Msg("handling transaction request")
+	var res TransactionRequest
+	var err error
+	if err = json.Unmarshal(data, &res); err != nil {
+		return fmt.Errorf("failed to unmarshal account response: %w", err)
+	}
+
+	result := map[string]interface{}{
+		"request_type": res.RequestType,
+		"user_id":      res.UserID,
+		"operation_id": res.OperationID,
+		"result":       false,
+	}
+
+	switch res.RequestType {
+	case "withdraw":
+		_, err = s.Withdraw(ctx, res.UserID, res.Amount)
+	case "deposit":
+		_, err = s.Deposit(ctx, res.UserID, res.Amount)
+	case "transfer":
+		_, _, err = s.Transfer(ctx, res.UserID, res.RecipientID, res.Amount)
+	default:
+		err = fmt.Errorf("unknown request type: %s", res.RequestType)
+	}
+	if err != nil {
+		s.logger.Error().Err(err).
+			Uint64("userID", res.UserID).
+			Uint64("operationID", res.OperationID).
+			Msg("failed to handle transaction request")
+		s.kafkaPublisher.Publish(ctx, "transaction_response", "key", result)
+		return fmt.Errorf("failed to handle transaction request: %w", err)
+	}
+
+	result["result"] = true
+	s.kafkaPublisher.Publish(ctx, "transaction_response", strconv.FormatUint(res.UserID, 10),
+		result)
+
+	return nil
 }

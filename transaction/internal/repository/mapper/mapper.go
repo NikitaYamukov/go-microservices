@@ -1,8 +1,8 @@
 package mapper
 
 import (
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/model"
-	repomodel "github.com/NikitaYamukov/go-microservices/transaction/internal/repository/model"
+	"transaction/internal/model"
+	repomodel "transaction/internal/repository/model"
 )
 
 func TransactionToRepoTransaction(transaction model.Transaction) repomodel.Transaction {

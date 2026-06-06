@@ -5,9 +5,9 @@ import (
 
 	paginationpb "github.com/NikitaYamukov/contracts/pagination/go"
 	transactionpb "github.com/NikitaYamukov/contracts/transaction/go"
-	"github.com/NikitaYamukov/go-microservices/transaction/internal/model"
 	"github.com/rs/zerolog"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"transaction/internal/model"
 )
 
 type Server struct {
