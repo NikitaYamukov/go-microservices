@@ -1,7 +1,10 @@
 # Go application Makefile
-APP_NAME := transaction
-BINARY_NAME := bin/$(APP_NAME)
-MAIN_PATH := ./cmd
+APP_NAME ?= transaction
+BINARY_NAME ?= bin/$(APP_NAME)
+MAIN_PATH ?= ./cmd
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+BUILD_TIME ?= $(shell date -u '+%Y-%m-%d_%H:%M:%S')
+LDFLAGS ?= -ldflags "-X main.Version=$(VERSION) -X main.BuildTime=$(BUILD_TIME)"
 
 # Go files to format and lint
 GOFILES ?= $(shell find . -name "*.go" -type f -not -path "./vendor/*" -not -path "./.git/*")
@@ -12,11 +15,11 @@ GOFILES ?= $(shell find . -name "*.go" -type f -not -path "./vendor/*" -not -pat
 # Build the application
 build:
 	@echo "Building $(APP_NAME)..."
-	mkdir -p bin
-	go build -o $(BINARY_NAME) $(MAIN_PATH)
+	@mkdir -p bin
+	go build $(LDFLAGS) -o $(BINARY_NAME) $(MAIN_PATH)
 
 # Run the application
-run: build
+run: clean build
 	@echo "Running $(APP_NAME)..."
 	./$(BINARY_NAME)
 
@@ -41,7 +44,8 @@ deps-update:
 fmt:
 	@echo "Formatting code..."
 	gofmt -s -w $(GOFILES)
-	goimports -w $(GOFILES)
+	gofumpt -l -w -s $(GOFILES)
+	goimports -l -w $(GOFILES)
 
 # Run linter
 lint:
@@ -51,7 +55,7 @@ lint:
 # Run tests
 test:
 	@echo "Running tests..."
-	go test ./...
+	go test -v ./...
 
 # Run tests with coverage
 test-coverage:
@@ -68,13 +72,18 @@ bench:
 # Clean build artifacts
 clean:
 	@echo "Cleaning build artifacts..."
-	rm -rf bin
+	rm -rf bin/
 	rm -f coverage.out coverage.html
 
 # Install the application
 install: build
 	@echo "Installing $(APP_NAME)..."
-	go install $(MAIN_PATH)
+	go install $(LDFLAGS) $(MAIN_PATH)
+
+generate-mocks:
+	@echo "Generating mocks..."
+	@go install go.uber.org/mock/mockgen@latest
+	@mockgen -source=internal/service/service.go -destination=internal/service/mocks/mocks.go -package=mocks
 
 # Generate documentation
 docs:
@@ -105,4 +114,4 @@ dev: fmt lint test build
 # CI/CD workflow
 ci: deps fmt lint test build
 
-.PHONY: build run run-only deps deps-update fmt lint test test-coverage bench clean install docs help dev ci
+.PHONY: build run run-only deps deps-update fmt lint test test-coverage bench clean install generate-mocks docs help dev ci
