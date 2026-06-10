@@ -1,5 +1,5 @@
 services:
-  account:
+  account_db:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
@@ -17,7 +17,7 @@ services:
     networks:
       - app-network
 
-  auth:
+  auth_db:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
@@ -35,7 +35,7 @@ services:
     networks:
       - app-network
 
-  transaction:
+  transaction_db:
     image: postgres:15-alpine
     environment:
       POSTGRES_USER: postgres
@@ -62,20 +62,28 @@ services:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # объявляем все виды listeners, в том числе PLAINTEXT_HOST
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+
+      # объявляем external/host endpoints
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_LOG_DIRS: /var/lib/kafka/data
     ports:
-      - "29092:29092"
-      - "9092:9092"
+      - "29092:29092" # внешний порт
+      - "9092:9092"   # внутренняя сеть docker
     restart: unless-stopped
+    networks:
+      - app-network
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -89,6 +97,94 @@ services:
     ports:
       - "29093:8080"
     restart: unless-stopped
+    networks:
+      - app-network
+
+  account:
+    build: ../account
+    ports:
+      - "50051:50051"
+    environment:
+      SERVICE_NAME: account
+      APP_ENV: dev
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 50051
+      LOG_LEVEL: debug
+      DB_DSN: postgres://postgres:postgres@account_db:5432/account?sslmode=disable
+      KAFKA_BROKER_HOST: kafka:9092
+      KAFKA_CONSUMER_GROUP: consumer-account
+      KAFKA_TRANSACTION_TOPIC: transaction_data
+    depends_on:
+      account_db:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    networks:
+      - app-network
+
+  auth:
+    build: ../auth
+    ports:
+      - "50052:50052"
+    environment:
+      SERVICE_NAME: auth
+      APP_ENV: dev
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 50052
+      LOG_LEVEL: debug
+      JWT_SECRET: secret
+      ACCESS_TOKEN_TTL_MINUTES: 60
+      REFRESH_TOKEN_TTL_DAYS: 30
+      DB_DSN: postgres://postgres:postgres@auth_db:5432/auth?sslmode=disable
+    depends_on:
+      auth_db:
+        condition: service_healthy
+    networks:
+      - app-network
+
+  transaction:
+    build: ../transaction
+    ports:
+      - "50054:50054"
+    environment:
+      SERVICE_NAME: transaction
+      APP_ENV: dev
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 50054
+      LOG_LEVEL: debug
+      DB_DSN: postgres://postgres:postgres@transaction_db:5432/transaction?sslmode=disable
+      ACCOUNT_GRPC_HOST: account:50051
+      KAFKA_BROKER_HOST: kafka:9092
+      KAFKA_CONSUMER_GROUP: consumer
+      KAFKA_TRANSACTION_TOPIC: transaction_response
+    depends_on:
+      transaction_db:
+        condition: service_healthy
+      account:
+        condition: service_started
+      kafka:
+        condition: service_started
+    networks:
+      - app-network
+
+  gateway:
+    build: ../gateway
+    ports:
+      - "50053:50053"
+    environment:
+      SERVICE_NAME: gateway
+      APP_ENV: dev
+      GRPC_HOST: 0.0.0.0
+      GRPC_PORT: 50053
+      LOG_LEVEL: debug
+      JWT_SECRET: secret
+      ACCOUNT_GRPC_HOST: account:50051
+      AUTH_GRPC_HOST: auth:50052
+    depends_on:
+      - account
+      - auth
+    networks:
+      - app-network
 
 volumes:
   postgres_account_data:
