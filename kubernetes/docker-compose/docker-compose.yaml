@@ -1,0 +1,175 @@
+services:
+  account-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: account
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_account_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  auth-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  transaction-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: transaction
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_transaction_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: book-kafka
+    platform: linux/x86_64
+    environment:
+      CLUSTER_ID: 5DG6kO2sQY6c8lUfs8nG5A
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+
+      # объявляем все виды listeners, в том числе PLAINTEXT_HOST
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,PLAINTEXT_HOST://:29092
+
+      # объявляем external/host endpoints
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    ports:
+      - "29092:29092"   # внешний порт
+      - "9092:9092"     # внутренняя сеть docker
+    restart: unless-stopped
+    networks: 
+      - app-network
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: book-kafka-ui
+    platform: linux/x86_64
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    depends_on:
+      - kafka
+    ports:
+      - "29093:8080"
+    restart: unless-stopped
+
+  transaction:
+    image: yuliapopova/transaction:latest
+    build: ./transaction
+    ports:
+      - "50054:8080"
+    environment:
+      DB_DSN: postgres://postgres:postgres@transaction-db:5432/transaction?sslmode=disable
+      ACCOUNT_GRPC_HOST: account:8080
+      KAFKA_BROKER_HOST: kafka:9092
+      KAFKA_CONSUMER_GROUP: consumer
+      KAFKA_TRANSACTION_TOPIC: transaction-response
+      GRPC_PORT: 50054
+    depends_on:
+      - transaction-db
+      - kafka
+    networks: 
+      - app-network
+
+  account:
+    image: yuliapopova/account:latest
+    build: ./account
+    ports:
+      - "50051:8080"
+    environment:
+      DB_DSN: postgres://postgres:postgres@account-db:5432/account?sslmode=disable
+      KAFKA_BROKER_HOST: kafka:9092
+      KAFKA_CONSUMER_GROUP: consumer-account
+      KAFKA_TRANSACTION_TOPIC: transaction-request
+      GRPC_PORT: 50051
+    depends_on:
+      - account-db
+      - kafka
+    networks: 
+      - app-network
+
+  auth:
+    image: yuliapopova/auth:latest
+    build: ./auth
+    ports:
+      - "50052:8080"
+    environment:
+      JWT_SECRET: secret
+      ACCESS_TOKEN_TTL_MINUTES: 60
+      REFRESH_TOKEN_TTL_DAYS: 30
+      DB_DSN: postgres://postgres:postgres@auth-db:5432/auth?sslmode=disable
+      GRPC_PORT: 50052
+    depends_on:
+      - auth-db
+    networks: 
+      - app-network
+
+  gateway:
+    image: yuliapopova/gateway:latest
+    build: ./gateway
+    ports:
+      - "50053:8080"
+    environment:
+      JWT_SECRET: secret
+      ACCOUNT_GRPC_HOST: account:8080
+      AUTH_GRPC_HOST: auth:8080
+      TRANSACTION_GRPC_HOST: transaction:8080
+      GRPC_PORT: 50053
+    networks: 
+      - app-network
+
+
+volumes:
+  postgres_account_data:
+  postgres_auth_data:
+  postgres_transaction_data:
+
+networks:
+  app-network:
+    driver: bridge
+ 
