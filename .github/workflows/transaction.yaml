@@ -4,6 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - ".github/workflows/transaction.yaml"
       - "transaction/**"
 
 jobs:
@@ -17,6 +18,12 @@ jobs:
     steps:
       - name: get code
         uses: actions/checkout@v3.5.3
+
+      - name: setup go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: transaction/go.mod
+          cache-dependency-path: transaction/go.sum
 
       - name: install deps
         run: go mod download
